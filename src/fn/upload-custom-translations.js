@@ -1,16 +1,37 @@
 const fs = require('../lib/sync-fs');
 const skipFn = require('../lib/skip-fn');
-const {warn} = require('../lib/log');
+const warn = require('../lib/log').warn;
+const info = require('../lib/log').info;
 const pouch = require('../lib/db');
 const request = require('request-promise-native');
 const semver = require('semver');
-const ISO639 = require('iso-639-1');
+const request = require('request-promise-native');
+const inquirer = require('inquirer');
+const jsonDiff = require('json-diff');
+const fse = require('fs-extra');
 
 const FILE_MATCHER = /messages-.*\.properties/;
 
+const actionChoices = [
+  { name: 'Overwrite the changes', value: 'overwrite' }, 
+  { name: 'Abort so that you can update the translation', value: 'abort' }
+];
 
+const actionQuestionsWithDiff = [{
+  type: 'list',
+  name: 'action',
+  message: 'You are trying to modify a translation that has been modified since your last upload. Do you want to?',
+  choices: actionChoices.concat([{ name: 'View diff', value: 'diff' }])
+}];
 
-module.exports = (projectDir, couchUrl) => {
+const actionQuestionsWithoutDiff = [{
+  type: 'list',
+  name: 'action',
+  message: 'You are trying to modify a translation that has been modified since your last upload. Do you want to?',
+  choices: actionChoices
+}];
+
+module.exports = async (projectDir, couchUrl) => {
   if(!couchUrl) return skipFn('no couch URL set');
 
   const dir = `${projectDir}/translations`;
@@ -48,8 +69,16 @@ module.exports = (projectDir, couchUrl) => {
             .then(doc => db.put(doc));
         }));
     });
-
+  } catch(e) {
+    throw e;
+  }
 };
+
+async function asyncForEach(array, callback) {
+  for (let index = 0; index < array.length; index++) {
+    await callback(array[index], index, array);
+  }
+}
 
 function propertiesAsObject(path) {
   const vals = {};

@@ -1,3 +1,7 @@
+const request = require('request-promise-native');
+const inquirer = require('inquirer');
+const jsonDiff = require('json-diff');
+const fse = require('fs-extra');
 const attachmentsFromDir = require('../lib/attachments-from-dir');
 const attachmentFromFile = require('../lib/attachment-from-file');
 const fs = require('../lib/sync-fs');
@@ -7,12 +11,29 @@ const skipFn = require('../lib/skip-fn');
 const trace = require('../lib/log').trace;
 const warn = require('../lib/log').warn;
 const pouch = require('../lib/db');
-const abortPromiseChain = require('../lib/abort-promise-chain');
 
 const SUPPORTED_PROPERTIES = ['context', 'icon', 'internalId', 'title'];
 
+const actionChoices = [
+  { name: 'Overwrite the changes', value: 'overwrite' }, 
+  { name: 'Abort so that you can update the form', value: 'abort' }
+];
 
-module.exports = (projectDir, couchUrl, subDirectory, options) => {
+const actionQuestionsWithDiff = [{
+  type: 'list',
+  name: 'action',
+  message: 'You are trying to modify a form that has been modified since your last upload. Do you want to?',
+  choices: actionChoices.concat([{ name: 'View diff', value: 'diff' }])
+}];
+
+const actionQuestionsWithoutDiff = [{
+  type: 'list',
+  name: 'action',
+  message: 'You are trying to modify a form that has been modified since your last upload. Do you want to?',
+  choices: actionChoices
+}];
+
+module.exports = async (projectDir, couchUrl, subDirectory, options) => {
   if(!couchUrl) return skipFn('no couch URL set');
 
   const db = pouch(couchUrl);
@@ -26,10 +47,12 @@ module.exports = (projectDir, couchUrl, subDirectory, options) => {
     warn(`Forms dir not found: ${formsDir}`);
     return Promise.resolve();
   }
-  return fs.readdir(formsDir)
+  const fileNames = fs.readdir(formsDir)
     .filter(name => name.endsWith('.xml'))
-    .filter(name => !options.forms || options.forms.includes(fs.withoutExtension(name)))
-    .reduce((promiseChain, fileName) => {
+    .filter(name => !options.forms || options.forms.includes(fs.withoutExtension(name)));
+
+  try {
+    await asyncForEach(fileNames, async (fileName) => {
       info(`Preparing form for upload: ${fileName}…`);
 
       const baseFileName = fs.withoutExtension(fileName);
@@ -42,8 +65,7 @@ module.exports = (projectDir, couchUrl, subDirectory, options) => {
       const xml = fs.read(xformPath);
 
       if(!formHasInstanceId(xml)) {
-        return abortPromiseChain(promiseChain,
-            `Form at ${xformPath} appears to be missing <meta><instanceID/></meta> node.  This form will not work on medic-webapp.`);
+        throw new Error(`Form at ${xformPath} appears to be missing <meta><instanceID/></meta> node.  This form will not work on medic-webapp.`);
       }
 
       const internalId = readIdFrom(xml);
@@ -66,12 +88,62 @@ module.exports = (projectDir, couchUrl, subDirectory, options) => {
 
       const docUrl = `${couchUrl}/${docId}`;
 
-      return promiseChain
-        .then(() => trace('Uploading form', `${formsDir}/${fileName}`, 'to', docUrl))
-        .then(() => insertOrReplace(db, doc))
-        .then(() => info('Uploaded form', `${formsDir}/${fileName}`, 'to', docUrl));
-    }, Promise.resolve());
+      // Pull remote _rev
+      let remoteRev = 'remoteRev';
+      let remoteJson = '';
+      try {
+        const response = await request.get({
+          method: 'GET',
+          url: `${couchUrl}/${docId}`,
+        });
+        remoteJson = JSON.parse(response);
+        remoteRev = remoteJson._rev;
+      } catch (e) {}
+
+      // Pull local _rev
+      let localRev = 'localRev';
+      try {
+        localRev = fs.read(`${projectDir}/._revs/${docId}`);
+      } catch (e) {}
+
+      // Compare _revs
+      // If _revs are different, show prompt
+      if (localRev !== remoteRev) {
+        let response = await inquirer.prompt(actionQuestionsWithDiff);
+        if (response.action === 'diff') {
+          // Show diff
+          console.log(jsonDiff.diffString(remoteJson, doc));
+
+          response = await inquirer.prompt(actionQuestionsWithoutDiff);
+        }
+        if (response.action === 'abort') {
+          throw new Error('configuration modified');
+        }
+      }
+
+      trace('Uploading form', `${formsDir}/${fileName}`, 'to', docUrl);
+      await insertOrReplace(db, doc);
+      info('Uploaded form', `${formsDir}/${fileName}`, 'to', docUrl);
+
+      const response = await request.get({
+        method: 'GET',
+        url: `${couchUrl}/${docId}`,
+      });
+      remoteJson = JSON.parse(response);
+      remoteRev = remoteJson._rev;   
+
+      await fse.outputFile(`${projectDir}/._revs/${docId}`, remoteRev);
+    });
+  } catch(e) {
+    throw e;
+  }
 };
+
+async function asyncForEach(array, callback) {
+  for (let index = 0; index < array.length; index++) {
+    await callback(array[index], index, array);
+  }
+}
 
 // This isn't really how to parse XML, but we have fairly good control over the
 // input and this code is working so far.  This may break with changes to the
