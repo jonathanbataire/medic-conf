@@ -1,6 +1,7 @@
 const api = require('../api-stub');
 const assert = require('chai').assert;
 const uploadCustomTranslations = require('../../src/fn/upload-custom-translations');
+<<<<<<< HEAD
 const testProjectDir = './data/upload-custom-translations/';
 
 const getTranslationDoc = (lang) => {
@@ -21,9 +22,15 @@ const expectTranslationDocs = (...expectedLangs) => {
       assert.deepEqual(actualIds, expectedIds);
     });
 };
+=======
+const inquirer = require('inquirer');
+>>>>>>> Fix mocha test
 
 describe('upload-custom-translations', () => {
-  beforeEach(api.start);
+  beforeEach(() => {
+    inquirer.prompt = () => Promise.resolve({action: 'overwrite'});
+    api.start();
+  });
   afterEach(api.stop);
 
   describe('medic-2.x', () => {
