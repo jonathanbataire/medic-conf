@@ -39,13 +39,17 @@ module.exports = async (projectDir, couchUrl) => {
     });
     remoteJson = JSON.parse(response);
     remoteRev = remoteJson._rev;
-  } catch (e) {}
+  } catch (e) {
+    // continue regardless of error
+  }
 
   // Pull local _rev
   let localRev = 'localRev';
   try {
     localRev = fs.read(`${projectDir}/._revs/settings`);
-  } catch (e) {}
+  } catch (e) {
+    // continue regardless of error
+  }
 
   // Compare _revs
   // If _revs are different, show prompt
