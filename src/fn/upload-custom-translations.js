@@ -3,33 +3,10 @@ const skipFn = require('../lib/skip-fn');
 const warn = require('../lib/log').warn;
 const info = require('../lib/log').info;
 const pouch = require('../lib/db');
-const request = require('request-promise-native');
+const warnUploadOverwrite = require('../lib/warn-upload-overwrite');
 const semver = require('semver');
-const request = require('request-promise-native');
-const inquirer = require('inquirer');
-const jsonDiff = require('json-diff');
-const fse = require('fs-extra');
 
 const FILE_MATCHER = /messages-.*\.properties/;
-
-const actionChoices = [
-  { name: 'Overwrite the changes', value: 'overwrite' }, 
-  { name: 'Abort so that you can update the translation', value: 'abort' }
-];
-
-const actionQuestionsWithDiff = [{
-  type: 'list',
-  name: 'action',
-  message: 'You are trying to modify a translation that has been modified since your last upload. Do you want to?',
-  choices: actionChoices.concat([{ name: 'View diff', value: 'diff' }])
-}];
-
-const actionQuestionsWithoutDiff = [{
-  type: 'list',
-  name: 'action',
-  message: 'You are trying to modify a translation that has been modified since your last upload. Do you want to?',
-  choices: actionChoices
-}];
 
 module.exports = async (projectDir, couchUrl) => {
   if(!couchUrl) return skipFn('no couch URL set');
@@ -65,7 +42,12 @@ module.exports = async (projectDir, couchUrl) => {
               if(e.status === 404) return newDocFor(fileName, instanceUrl, db, languageName, languageCode);
               else throw e;
             })
-            .then(doc => overwriteProperties(doc, translations))
+            .then(async (doc) => {
+                   await warnUploadOverwrite.preUpload(projectDir, db, doc);
+                   overwriteProperties(doc, translations);
+                  await warnUploadOverwrite.postUpload(projectDir, db, doc);
+                  return doc;
+            })
             .then(doc => db.put(doc));
         }));
     });
@@ -73,12 +55,6 @@ module.exports = async (projectDir, couchUrl) => {
     throw e;
   }
 };
-
-async function asyncForEach(array, callback) {
-  for (let index = 0; index < array.length; index++) {
-    await callback(array[index], index, array);
-  }
-}
 
 function propertiesAsObject(path) {
   const vals = {};

@@ -1,34 +1,11 @@
 const api = require('../api-stub');
 const assert = require('chai').assert;
 const uploadCustomTranslations = require('../../src/fn/upload-custom-translations');
-<<<<<<< HEAD
-const testProjectDir = './data/upload-custom-translations/';
-
-const getTranslationDoc = (lang) => {
-  return api.db.get(`messages-${lang}`)
-    .then(doc => {
-      assert.equal(doc.code, lang);
-      assert.equal(doc.type, 'translations');
-      return doc;
-    });
-};
-
-const expectTranslationDocs = (...expectedLangs) => {
-  const expectedIds = expectedLangs.map(lang => `messages-${lang}`);
-  return api.db
-    .allDocs()
-    .then(res => {
-      const actualIds = res.rows.filter(row => row.id.startsWith('messages-')).map(row => row.id);
-      assert.deepEqual(actualIds, expectedIds);
-    });
-};
-=======
-const inquirer = require('inquirer');
->>>>>>> Fix mocha test
+const readline = require('readline-sync');
 
 describe('upload-custom-translations', () => {
   beforeEach(() => {
-    inquirer.prompt = () => Promise.resolve({action: 'overwrite'});
+    readline.keyInYN = () => true;
     api.start();
   });
   afterEach(api.stop);
