@@ -4,6 +4,7 @@ const warn = require('../lib/log').warn;
 const info = require('../lib/log').info;
 const pouch = require('../lib/db');
 const warnUploadOverwrite = require('../lib/warn-upload-overwrite');
+const request = require('request-promise-native');
 const semver = require('semver');
 
 const FILE_MATCHER = /messages-.*\.properties/;
@@ -15,45 +16,35 @@ module.exports = async (projectDir, couchUrl) => {
   const db = pouch(couchUrl);
   const instanceUrl = couchUrl.replace(/\/medic$/, '');
 
-  return Promise.resolve()
-    .then(() => {
-      if(!fs.exists(dir)) return warn('Could not find custom translations dir:', dir);
+  if(!fs.exists(dir)) return warn('Could not find custom translations dir:', dir);
 
-      return Promise.all(fs.readdir(dir)
-        .filter(name => FILE_MATCHER.test(name))
-        .map(fileName => {
-          const id = idFor(fileName);
-          const languageCode = id.substring('messages-'.length);
-          let languageName = ISO639.getName(languageCode);
-          if (!languageName){
-            warn(`'${languageCode}' is not a recognized ISO 639 language code, please ask admin to set the name`);
-            languageName = 'TODO: please ask admin to set this in settings UI';
-          } else {
-            let languageNativeName = ISO639.getNativeName(languageCode);
-            if (languageNativeName !== languageName){
-              languageName = `${languageNativeName} (${languageName})`;
-            }
-          }
+  const fileNames = fs.readdir(dir)
+                      .filter(name => FILE_MATCHER.test(name));
 
-          var translations = propertiesAsObject(`${dir}/${fileName}`);
+  for (let fileName of fileNames) {
+    const translations = propertiesAsObject(`${dir}/${fileName}`);
 
-          return db.get(id)
-            .catch(e => {
-              if(e.status === 404) return newDocFor(fileName, instanceUrl, db, languageName, languageCode);
-              else throw e;
-            })
-            .then(async (doc) => {
-                   await warnUploadOverwrite.preUpload(projectDir, db, doc, couchUrl);
-                   overwriteProperties(doc, translations);
-                  await warnUploadOverwrite.postUpload(projectDir, db, doc, couchUrl);
-                  return doc;
-            })
-            .then(doc => db.put(doc));
-        }));
-    });
-  } catch(e) {
-    throw e;
+    let doc;
+    try {
+      doc = await db.get(idFor(fileName));
+    } catch(e) {
+      if (e.status === 404) {
+        doc = newDocFor(fileName, instanceUrl, db);
+      }
+      else throw e;
+    }
+
+    overwriteProperties(doc, translations);
+
+    await warnUploadOverwrite.preUpload(projectDir, db, doc, couchUrl);
+
+    info(`Uploaded translation ${dir}/${fileName} to ${couchUrl}/${doc._id}`);
+    await db.put(doc);
+
+    await warnUploadOverwrite.postUpload(projectDir, db, doc, couchUrl);
   }
+
+  return Promise.resolve();
 };
 
 function propertiesAsObject(path) {
