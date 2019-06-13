@@ -29,8 +29,7 @@ module.exports = async (projectDir, couchUrl, subDirectory, options) => {
     .filter(name => name.endsWith('.xml'))
     .filter(name => !options.forms || options.forms.includes(fs.withoutExtension(name)));
 
-  for (let index = 0; index < fileNames.length; index++) {
-    const fileName = fileNames[index];
+  for (let fileName of fileNames) {
     info(`Preparing form for upload: ${fileName}…`);
 
     const baseFileName = fs.withoutExtension(fileName);
