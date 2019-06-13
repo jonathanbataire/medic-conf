@@ -26,7 +26,7 @@ const expectTranslationDocs = (...expectedLangs) => {
 describe('upload-custom-translations', () => {
   beforeEach(() => {
     readline.keyInYN = () => true;
-    api.start();
+    return api.start();
   });
   afterEach(api.stop);
 
