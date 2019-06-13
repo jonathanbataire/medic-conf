@@ -43,9 +43,9 @@ module.exports = async (projectDir, couchUrl) => {
               else throw e;
             })
             .then(async (doc) => {
-                   await warnUploadOverwrite.preUpload(projectDir, db, doc);
+                   await warnUploadOverwrite.preUpload(projectDir, db, doc, couchUrl);
                    overwriteProperties(doc, translations);
-                  await warnUploadOverwrite.postUpload(projectDir, db, doc);
+                  await warnUploadOverwrite.postUpload(projectDir, db, doc, couchUrl);
                   return doc;
             })
             .then(doc => db.put(doc));

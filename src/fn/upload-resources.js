@@ -25,11 +25,11 @@ module.exports = async (projectDir, couchUrl) => {
     _attachments: attachmentsFromDir(`${projectDir}/resources`),
   };
 
-  await warnUploadOverwrite.preUpload(projectDir, db, doc);
+  await warnUploadOverwrite.preUpload(projectDir, db, doc, couchUrl);
 
   await insertOrReplace(db, doc);
 
-  await warnUploadOverwrite.postUpload(projectDir, db, doc);
+  await warnUploadOverwrite.postUpload(projectDir, db, doc, couchUrl);
 
   return Promise.resolve();
 };

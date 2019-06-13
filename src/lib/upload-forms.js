@@ -66,13 +66,13 @@ module.exports = async (projectDir, couchUrl, subDirectory, options) => {
 
     const docUrl = `${couchUrl}/${docId}`;
 
-    await warnUploadOverwrite.preUpload(projectDir, db, doc);
+    await warnUploadOverwrite.preUpload(projectDir, db, doc, couchUrl);
 
     trace('Uploading form', `${formsDir}/${fileName}`, 'to', docUrl);
     await insertOrReplace(db, doc);
     info('Uploaded form', `${formsDir}/${fileName}`, 'to', docUrl);
 
-    await warnUploadOverwrite.postUpload(projectDir, db, doc);
+    await warnUploadOverwrite.postUpload(projectDir, db, doc, couchUrl);
   }
 };
 
