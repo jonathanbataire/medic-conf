@@ -29,7 +29,7 @@ module.exports = async (projectDir, couchUrl) => {
       doc = await db.get(idFor(fileName));
     } catch(e) {
       if (e.status === 404) {
-        doc = newDocFor(fileName, instanceUrl, db);
+        doc = await newDocFor(fileName, instanceUrl, db);
       }
       else throw e;
     }
@@ -75,7 +75,7 @@ function overwriteProperties(doc, props) {
   return doc;
 }
 
-function newDocFor(fileName, instanceUrl, db, languageName, languageCode) {
+const newDocFor = async (fileName, instanceUrl, db, languageName, languageCode) => {
 
   const doc = {
     _id: idFor(fileName),
@@ -85,16 +85,15 @@ function newDocFor(fileName, instanceUrl, db, languageName, languageCode) {
     enabled: true,
   };
 
-  return genericTranslationsStructure(instanceUrl, db).then(useGenericTranslations => {
-    if (useGenericTranslations) {
-      doc.generic = {};
-    } else {
-      doc.values = {};
-    }
+  const useGenericTranslations = await genericTranslationsStructure(instanceUrl, db);
+  if (useGenericTranslations) {
+    doc.generic = {};
+  } else {
+    doc.values = {};
+  }
 
-    return doc;
-  });
-}
+  return doc;
+};
 
 function idFor(fileName) {
   return fileName.substring(0, fileName.length - 11);
@@ -106,15 +105,16 @@ const getVersion = (instanceUrl, db) => {
     .then(deploy_info => deploy_info && deploy_info.version);
 };
 
-const genericTranslationsStructure = (instanceUrl, db) => {
-  return getVersion(instanceUrl, db).then(version => {
+const genericTranslationsStructure = async (instanceUrl, db) => {
+  try {
+    const version = await getVersion(instanceUrl, db);
     if (semver.valid(version)) {
       return semver.gte(version, '3.4.0');
     }
 
-    return db
-      .get('messages-en')
-      .then(doc => doc.generic)
-      .catch(() => false);
-  });
+    const doc = await db.get('messages-en');
+    return doc.generic;
+  } catch(e) {
+    return false;
+  }
 };
