@@ -16,15 +16,43 @@ module.exports = (projectDir, couchUrl) => {
       const usernameIndex = cols.indexOf('username');
       const passwordIndex = cols.indexOf('password');
       const rolesIndex = cols.indexOf('roles');
-      const placeIdIndex = cols.indexOf('place');
-      const contactIndex = cols.indexOf('contact');
+
+      // we will no longer use these columns
+      //const placeIdIndex = cols.indexOf('place');
+      //const contactIndex = cols.indexOf('contact');
+
+      // TODO : change prefixedProperties or write similar function that parses the prefixed columns
+      // example
+      // contact.name   contact.phone   contact.parent.name  contact.gender    contact.village    contact.parent.parent._id
+      // Mary Kane      0723111111      place                F                 Kizibira           <some uuid>
+      // creates this row property
+      // contact: {
+      //   name: 'Mary kane',
+      //   phone: 0723111111,
+      //   gender: 'F',
+      //   parent: {
+      //     name: 'place',
+      //     parent: { _id: <some uuid>  }
+      //   }
+      // }
+      //
+      // Go over every row and determine which contact to create separately and upload
+      // after creating the contacts, go over every row and replace the newly created contact with the new uuids
 
       return rows.reduce((promiseChain, row) => {
         const username = row[usernameIndex];
         const password = row[passwordIndex];
         const roles     = row[rolesIndex].split(':');
-        const contact = contactIndex === -1 ? prefixedProperties(cols, row, 'contact.') : row[contactIndex];
-        const place = placeIdIndex === -1 ? prefixedProperties(cols, row, 'place.') : row[placeIdIndex];
+
+
+        //const contact = contactIndex === -1 ? prefixedProperties(cols, row, 'contact.') : row[contactIndex];
+        //const place = placeIdIndex === -1 ? prefixedProperties(cols, row, 'place.') : row[placeIdIndex];
+
+        const place = row.contact.parent; // this is a mockup.
+        const contact = row.contact; // this is a mockup
+        // you can choose to create all person and place docs in the step above and just send uuids as these fields in the request
+        // or you can just create documents that are 2 levels above the user that you're trying to create.
+
         const requestObject = { username, password, roles, place, contact };
 
         return promiseChain
@@ -41,12 +69,12 @@ module.exports = (projectDir, couchUrl) => {
     });
 };
 
-function prefixedProperties (cols, row, prefix) {
-  const indices = {};
-  cols.forEach(col => {
-    if (col.startsWith(prefix)) {
-      indices[col.substring(prefix.length)] = row[cols.indexOf(col)];
-    }
-  });
-  return indices;
-}
+/*function prefixedProperties (cols, row, prefix) {
+ const indices = {};
+ cols.forEach(col => {
+ if (col.startsWith(prefix)) {
+ indices[col.substring(prefix.length)] = row[cols.indexOf(col)];
+ }
+ });
+ return indices;
+ }*/
