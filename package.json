@@ -44,6 +44,7 @@
     "pouchdb-mapreduce": "^7.1.1",
     "readline-sync": "^1.4.9",
     "redact-basic-auth": "^1.0.0",
+    "request": "^2.88.0",
     "request-promise-native": "^1.0.7",
     "semver": "^6.1.1",
     "svgo": "^1.2.2",
