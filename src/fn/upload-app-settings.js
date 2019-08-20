@@ -18,9 +18,10 @@ module.exports = async (projectDir, couchUrl) => {
 
   await warnUploadOverwrite.preUpload(projectDir, db, doc, couchUrl);
 
+  const serverUrl = couchUrl.slice(0, couchUrl.lastIndexOf('/'));
   await request.put({
       method: 'PUT',
-      url: `${couchUrl}/api/v1/settings?replace=1`,
+      url: `${serverUrl}/api/v1/settings?replace=1`,
       headers: { 'Content-Type':'application/json' },
       body: body,
   });
