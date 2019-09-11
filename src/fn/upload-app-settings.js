@@ -2,7 +2,7 @@ const fs = require('../lib/sync-fs');
 const request = require('request-promise-native');
 const skipFn = require('../lib/skip-fn');
 const pouch = require('../lib/db');
-const warnUploadOverwrite = require('../lib/warn-upload-overwrite');
+// const warnUploadOverwrite = require('../lib/warn-upload-overwrite');
 
 module.exports = async (projectDir, couchUrl) => {
   const body = fs.read(`${projectDir}/app_settings.json`);
