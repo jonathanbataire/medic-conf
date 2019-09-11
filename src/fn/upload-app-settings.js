@@ -16,7 +16,7 @@ module.exports = async (projectDir, couchUrl) => {
     settings: JSON.parse(body)
   };
 
-  await warnUploadOverwrite.preUpload(projectDir, db, doc, couchUrl);
+  // await warnUploadOverwrite.preUpload(projectDir, db, doc, couchUrl);
 
   const serverUrl = couchUrl.slice(0, couchUrl.lastIndexOf('/'));
   await request.put({
@@ -26,7 +26,7 @@ module.exports = async (projectDir, couchUrl) => {
       body: body,
   });
 
-  await warnUploadOverwrite.postUpload(projectDir, db, doc, couchUrl);
+  // await warnUploadOverwrite.postUpload(projectDir, db, doc, couchUrl);
 
   return Promise.resolve();
 };
