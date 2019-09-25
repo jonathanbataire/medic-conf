@@ -6,6 +6,7 @@ const pouch = require('../lib/db');
 const warnUploadOverwrite = require('../lib/warn-upload-overwrite');
 const request = require('request-promise-native');
 const semver = require('semver');
+const ISO639 = require('iso-639-1');
 
 const FILE_MATCHER = /messages-.*\.properties/;
 
@@ -22,6 +23,19 @@ module.exports = async (projectDir, couchUrl) => {
                       .filter(name => FILE_MATCHER.test(name));
 
   for (let fileName of fileNames) {
+    const id = idFor(fileName);
+    const languageCode = id.substring('messages-'.length);
+    let languageName = ISO639.getName(languageCode);
+    if (!languageName){
+      warn(`'${languageCode}' is not a recognized ISO 639 language code, please ask admin to set the name`);
+      languageName = 'TODO: please ask admin to set this in settings UI';
+    } else {
+      let languageNativeName = ISO639.getNativeName(languageCode);
+      if (languageNativeName !== languageName){
+        languageName = `${languageNativeName} (${languageName})`;
+      }
+    }
+
     const translations = propertiesAsObject(`${dir}/${fileName}`);
 
     let doc;
@@ -29,7 +43,7 @@ module.exports = async (projectDir, couchUrl) => {
       doc = await db.get(idFor(fileName));
     } catch(e) {
       if (e.status === 404) {
-        doc = await newDocFor(fileName, instanceUrl, db);
+        doc = await newDocFor(fileName, instanceUrl, db, languageName, languageCode);
       }
       else throw e;
     }
